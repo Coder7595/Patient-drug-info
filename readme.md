@@ -3,7 +3,7 @@
 A plain-language medication causality assessment tool powered by Claude AI, based on the WHO-UMC scale.
 
 ## Repo structure
-
+ 
 ```
 /
 ├── index.html        ← the full frontend
