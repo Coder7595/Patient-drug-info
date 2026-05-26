@@ -1,0 +1,563 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Drug Reaction Checker</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: system-ui, sans-serif; background: #f8f7f4; color: #1a1a1a; min-height: 100vh; }
+  .container { max-width: 680px; margin: 0 auto; padding: 2rem 1.25rem 4rem; }
+  h1 { font-size: 22px; font-weight: 500; margin-bottom: 0.25rem; }
+  .subtitle { font-size: 14px; color: #666; margin-bottom: 2rem; line-height: 1.6; }
+  .step { background: #fff; border: 0.5px solid rgba(0,0,0,0.12); border-radius: 12px; padding: 1.25rem; margin-bottom: 1rem; }
+  .step-label { font-size: 11px; font-weight: 500; color: #aaa; text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 0.4rem; }
+  .step h2 { font-size: 15px; font-weight: 500; margin-bottom: 1rem; }
+  .field { margin-bottom: 1.1rem; }
+  .field:last-child { margin-bottom: 0; }
+  label { font-size: 14px; font-weight: 500; color: #1a1a1a; display: block; margin-bottom: 0.2rem; }
+  .hint { font-size: 12px; color: #888; margin-bottom: 0.4rem; line-height: 1.5; }
+  input[type=text], textarea, select {
+    width: 100%; padding: 9px 12px; border: 0.5px solid rgba(0,0,0,0.2);
+    border-radius: 8px; font-size: 14px; background: #fff; color: #1a1a1a;
+    font-family: inherit; outline: none; transition: border 0.15s;
+  }
+  input[type=text]:focus, textarea:focus, select:focus { border-color: rgba(0,0,0,0.4); }
+  textarea { resize: vertical; min-height: 80px; }
+  .radio-group { display: flex; gap: 8px; flex-wrap: wrap; }
+  .radio-btn { cursor: pointer; padding: 7px 14px; border: 0.5px solid rgba(0,0,0,0.2); border-radius: 8px; font-size: 13px; color: #444; background: #fff; transition: all 0.15s; user-select: none; }
+  .radio-btn:hover { border-color: rgba(0,0,0,0.35); background: #f8f7f4; }
+  .radio-btn.selected { background: #1a1a1a; color: #fff; border-color: #1a1a1a; }
+  .conc-drug-card { background: #f8f7f4; border: 0.5px solid rgba(0,0,0,0.1); border-radius: 10px; padding: 1rem; margin-bottom: 0.75rem; position: relative; }
+  .conc-drug-card .remove-btn { position: absolute; top: 10px; right: 10px; background: none; border: none; cursor: pointer; font-size: 18px; color: #bbb; line-height: 1; padding: 0; }
+  .conc-drug-card .remove-btn:hover { color: #e24b4a; }
+  .conc-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .add-drug-btn { width: 100%; padding: 9px; border: 0.5px dashed rgba(0,0,0,0.25); background: transparent; border-radius: 8px; font-size: 13px; color: #666; cursor: pointer; font-family: inherit; transition: all 0.15s; margin-top: 0.25rem; }
+  .add-drug-btn:hover { border-color: rgba(0,0,0,0.4); background: #f8f7f4; color: #1a1a1a; }
+  .submit-btn { width: 100%; padding: 13px; background: #1a1a1a; color: #fff; border: none; border-radius: 10px; font-size: 15px; font-weight: 500; cursor: pointer; margin-top: 1.25rem; transition: opacity 0.15s; }
+  .submit-btn:hover { opacity: 0.85; }
+  .submit-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+  .result-card { background: #fff; border: 0.5px solid rgba(0,0,0,0.12); border-radius: 12px; padding: 1.5rem; margin-top: 1.5rem; display: none; }
+  .verdict-banner { border-radius: 10px; padding: 1.25rem; margin-bottom: 1.25rem; text-align: center; }
+  .verdict-title { font-size: 12px; font-weight: 500; text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 0.4rem; }
+  .verdict-text { font-size: 21px; font-weight: 500; }
+  .v-certain { background: #EAF3DE; color: #27500A; }
+  .v-probable { background: #E6F1FB; color: #0C447C; }
+  .v-possible { background: #FAEEDA; color: #633806; }
+  .v-unlikely { background: #FCEBEB; color: #791F1F; }
+  .v-unassessable { background: #F1EFE8; color: #444441; }
+  .interaction-flag { background: #FAEEDA; border: 0.5px solid #EF9F27; border-radius: 8px; padding: 0.75rem 1rem; margin-bottom: 1rem; font-size: 13px; color: #633806; line-height: 1.6; display: none; }
+  .alt-culprit-flag { background: #FCEBEB; border: 0.5px solid #F09595; border-radius: 8px; padding: 0.75rem 1rem; margin-bottom: 1rem; font-size: 13px; color: #791F1F; line-height: 1.6; display: none; }
+  .flag-label { font-weight: 500; margin-bottom: 0.2rem; }
+  .reasoning { font-size: 14px; line-height: 1.8; color: #333; margin-bottom: 1.25rem; }
+  .disclaimer { font-size: 12px; color: #888; background: #f8f7f4; border-radius: 8px; padding: 0.75rem 1rem; margin-bottom: 1.25rem; line-height: 1.6; }
+  .actions { display: flex; gap: 10px; }
+  .btn-outline { flex: 1; padding: 10px; border: 0.5px solid rgba(0,0,0,0.2); background: #fff; color: #1a1a1a; border-radius: 8px; font-size: 14px; cursor: pointer; font-family: inherit; transition: background 0.15s; }
+  .btn-outline:hover { background: #f8f7f4; }
+  .report-nudge { background: #fff; border: 0.5px solid rgba(0,0,0,0.12); border-radius: 12px; padding: 1.25rem; margin-top: 1rem; display: none; }
+  .loading { text-align: center; padding: 2rem; display: none; }
+  .loading-text { font-size: 14px; color: #888; margin-top: 0.75rem; }
+  .dot-pulse { display: inline-flex; gap: 5px; }
+  .dot-pulse span { width: 8px; height: 8px; background: #bbb; border-radius: 50%; animation: pulse 1.2s ease-in-out infinite; }
+  .dot-pulse span:nth-child(2) { animation-delay: 0.2s; }
+  .dot-pulse span:nth-child(3) { animation-delay: 0.4s; }
+  @keyframes pulse { 0%,80%,100%{opacity:0.3;transform:scale(0.8)} 40%{opacity:1;transform:scale(1)} }
+  .error-msg { color: #A32D2D; font-size: 13px; margin-top: 0.5rem; display: none; }
+  .empty-conc { font-size: 13px; color: #aaa; text-align: center; padding: 0.5rem 0; }
+</style>
+</head>
+<body>
+<div class="container">
+  <h1>Did my medication cause this?</h1>
+  <p class="subtitle">Answer a few simple questions and we'll tell you how likely your medication was responsible for what you experienced.</p>
+
+  <!-- STEP 1 -->
+  <div class="step">
+    <div class="step-label">Step 1</div>
+    <h2>The medication you suspect</h2>
+    <div class="field">
+      <label>Which medication do you think caused the reaction?</label>
+      <p class="hint">Use the name on the box or packet — brand name or generic is fine.</p>
+      <input type="text" id="drug" placeholder="e.g. Metformin, Paracetamol, Amoxicillin">
+    </div>
+    <div class="field">
+      <label>How much were you taking, and how? <span style="color:#bbb;font-weight:400">(optional)</span></label>
+      <p class="hint">This helps us give a more accurate result.</p>
+      <input type="text" id="dose" placeholder="e.g. 500mg twice a day, one tablet by mouth">
+    </div>
+    <div class="field">
+      <label>How long had you been taking it before the reaction?</label>
+      <p class="hint">This helps us understand whether the reaction is new or delayed.</p>
+      <input type="text" id="duration" placeholder="e.g. 2 days, 3 weeks, about 6 months, over a year">
+    </div>
+  </div>
+
+  <!-- STEP 2 -->
+  <div class="step">
+    <div class="step-label">Step 2</div>
+    <h2>Other medications you were taking</h2>
+    <p class="hint" style="margin-bottom:0.85rem">Even if you don't think they caused it, other medications can interact and play a role. Include everything — prescription, over-the-counter, vitamins, herbal supplements.</p>
+    <div id="conc-list"><p class="empty-conc">No other medications added yet</p></div>
+    <button class="add-drug-btn" onclick="addConcDrug()">+ Add another medication</button>
+  </div>
+
+  <!-- STEP 3 -->
+  <div class="step">
+    <div class="step-label">Step 3</div>
+    <h2>What happened to you</h2>
+    <div class="field">
+      <label>Describe what you experienced</label>
+      <p class="hint">Be as specific as you can — where on your body, what it felt like, how bad it was.</p>
+      <textarea id="adr" placeholder="e.g. I got a red, itchy rash on my arms and chest. I also felt short of breath."></textarea>
+    </div>
+    <div class="field">
+      <label>How soon after taking the medication did this happen?</label>
+      <p class="hint">Even a rough estimate helps — hours, days, or weeks.</p>
+      <input type="text" id="time" placeholder="e.g. Within 2 hours, about 3 days later, after 2 weeks">
+    </div>
+  </div>
+
+  <!-- STEP 4 -->
+  <div class="step">
+    <div class="step-label">Step 4</div>
+    <h2>When you stopped — and started again</h2>
+    <div class="field">
+      <label>Did the reaction get better or go away when you stopped taking the medication?</label>
+      <p class="hint">If you haven't stopped yet, choose the last option.</p>
+      <div class="radio-group" id="dechallenge">
+        <div class="radio-btn" data-val="yes">Yes, it got better</div>
+        <div class="radio-btn" data-val="no">No, it continued</div>
+        <div class="radio-btn" data-val="not_done">I haven't stopped it</div>
+        <div class="radio-btn" data-val="unknown">I'm not sure</div>
+      </div>
+    </div>
+    <div class="field">
+      <label>Did the reaction come back when you took the medication again?</label>
+      <p class="hint">Many people never restart — that's completely fine, just pick the option below.</p>
+      <div class="radio-group" id="rechallenge">
+        <div class="radio-btn" data-val="yes">Yes, it came back</div>
+        <div class="radio-btn" data-val="no">No, it didn't return</div>
+        <div class="radio-btn" data-val="not_done">I didn't take it again</div>
+        <div class="radio-btn" data-val="unknown">I'm not sure</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- STEP 5 -->
+  <div class="step">
+    <div class="step-label">Step 5</div>
+    <h2>Anything else that could explain it?</h2>
+    <div class="field">
+      <label>Any conditions, allergies, or other factors? <span style="color:#bbb;font-weight:400">(optional)</span></label>
+      <p class="hint">For example: a known allergy, a recent illness, or something like a new food or product you used around the same time.</p>
+      <textarea id="other" placeholder="e.g. I have eczema. I recently switched laundry detergent." style="min-height:65px"></textarea>
+    </div>
+  </div>
+
+  <!-- STEP 6 -->
+  <div class="step">
+    <div class="step-label">Step 6</div>
+    <h2>Where are you?</h2>
+    <div class="field">
+      <label>Select your country</label>
+      <p class="hint">This helps us show you the right emergency number and where to report your reaction if you choose to.</p>
+      <select id="country">
+        <option value="">Select a country...</option>
+        <option value="IN">India</option>
+        <option value="US">United States</option>
+        <option value="GB">United Kingdom</option>
+        <option value="AU">Australia</option>
+        <option value="CA">Canada</option>
+        <option value="DE">Germany</option>
+        <option value="FR">France</option>
+        <option value="IT">Italy</option>
+        <option value="JP">Japan</option>
+        <option value="CN">China</option>
+        <option value="BR">Brazil</option>
+        <option value="ZA">South Africa</option>
+        <option value="SG">Singapore</option>
+        <option value="AE">United Arab Emirates</option>
+        <option value="SA">Saudi Arabia</option>
+        <option value="OTHER">Other / Not listed</option>
+      </select>
+    </div>
+  </div>
+
+  <div class="error-msg" id="error-msg">Please fill in the medication name, what happened, and when it happened before we can assess.</div>
+
+  <!-- URGENT BANNER -->
+  <div id="urgent-banner" style="display:none; background:#FCEBEB; border:0.5px solid #F09595; border-radius:12px; padding:1.25rem; margin-top:1.25rem;">
+    <div style="display:flex; align-items:flex-start; gap:12px;">
+      <div style="font-size:22px; line-height:1;">🚨</div>
+      <div>
+        <p style="font-size:15px; font-weight:500; color:#501313; margin-bottom:0.35rem;">This sounds like it may need urgent attention</p>
+        <p style="font-size:13px; color:#791F1F; line-height:1.6; margin-bottom:0.75rem;">Based on what you've described, this could be a serious reaction. Please <strong id="urgent-call-text">call your local emergency number or go to your nearest emergency department</strong> right away — don't wait for this assessment.</p>
+        <div style="display:flex; gap:8px; flex-wrap:wrap;">
+          <button onclick="document.getElementById('urgent-banner').style.display='none'; doAssess()" style="padding:8px 16px; background:#791F1F; color:#fff; border:none; border-radius:8px; font-size:13px; cursor:pointer; font-family:inherit;">I understand, show assessment anyway</button>
+          <button onclick="document.getElementById('urgent-banner').style.display='none'" style="padding:8px 16px; background:#fff; color:#791F1F; border:0.5px solid #F09595; border-radius:8px; font-size:13px; cursor:pointer; font-family:inherit;">Go back</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <button class="submit-btn" id="submit-btn" onclick="assess()">Find out now →</button>
+
+  <div class="loading" id="loading">
+    <div class="dot-pulse"><span></span><span></span><span></span></div>
+    <p class="loading-text" id="loading-text">Checking your reaction...</p>
+  </div>
+
+  <!-- RESULT -->
+  <div class="result-card" id="result-card">
+    <div class="verdict-banner" id="verdict-banner">
+      <div class="verdict-title">How likely <span id="verdict-drug-name"></span> caused this</div>
+      <div class="verdict-text" id="verdict-text"></div>
+    </div>
+    <div class="interaction-flag" id="interaction-flag">
+      <div class="flag-label">⚠️ Possible drug interaction</div>
+      <div id="interaction-text"></div>
+    </div>
+    <div class="alt-culprit-flag" id="alt-culprit-flag">
+      <div class="flag-label">💊 Another medication may be responsible</div>
+      <div id="alt-culprit-text"></div>
+    </div>
+    <div class="reasoning" id="reasoning"></div>
+    <div class="disclaimer">⚠️ This is for information only — it is not medical advice. Please talk to your doctor or pharmacist, especially if your reaction was serious, is getting worse, or hasn't gone away.</div>
+    <div class="actions">
+      <button class="btn-outline" onclick="downloadPDF()">⬇ Save as PDF</button>
+      <button class="btn-outline" onclick="resetForm()">Check another medication</button>
+    </div>
+  </div>
+
+  <!-- REPORTING NUDGE -->
+  <div class="report-nudge" id="report-nudge">
+    <p style="font-size:14px; font-weight:500; color:#1a1a1a; margin-bottom:0.35rem;">Help make medications safer for everyone</p>
+    <p style="font-size:13px; color:#666; line-height:1.6; margin-bottom:0.85rem;">Reporting your reaction to your country's medicines authority takes about 5 minutes and helps health officials track drug safety. Your report matters.</p>
+    <a id="report-link" href="#" target="_blank" style="display:inline-block; padding:8px 16px; background:#1a1a1a; color:#fff; border-radius:8px; font-size:13px; text-decoration:none;">Report this reaction →</a>
+    <p id="report-authority" style="font-size:12px; color:#aaa; margin-top:0.4rem;"></p>
+  </div>
+
+</div>
+
+<script>
+const COUNTRY_DATA = {
+  IN:    { emergency: 'Call 112 (India)',         authority: 'Pharmacovigilance Programme of India (PvPI)', link: 'https://pvpi.nhp.gov.in' },
+  US:    { emergency: 'Call 911 (US)',             authority: 'FDA MedWatch',                               link: 'https://www.fda.gov/safety/medwatch-fda-safety-information-and-adverse-event-reporting-program' },
+  GB:    { emergency: 'Call 999 (UK)',             authority: 'MHRA Yellow Card',                           link: 'https://yellowcard.mhra.gov.uk' },
+  AU:    { emergency: 'Call 000 (Australia)',      authority: 'TGA Adverse Event Reporting',                link: 'https://www.tga.gov.au/reporting-problems' },
+  CA:    { emergency: 'Call 911 (Canada)',         authority: 'Health Canada MedEffect',                    link: 'https://www.canada.ca/en/health-canada/services/drugs-health-products/medeffect-canada.html' },
+  DE:    { emergency: 'Call 112 (Germany)',        authority: 'BfArM Germany',                              link: 'https://www.bfarm.de/EN/BfArM/Tasks/Pharmacovigilance' },
+  FR:    { emergency: 'Call 112 (France)',         authority: 'ANSM France',                                link: 'https://signalement.social-sante.gouv.fr' },
+  IT:    { emergency: 'Call 112 (Italy)',          authority: 'AIFA Pharmacovigilance',                     link: 'https://www.aifa.gov.it/farmacovigilanza' },
+  JP:    { emergency: 'Call 119 (Japan)',          authority: 'PMDA Japan',                                 link: 'https://www.pmda.go.jp/english' },
+  CN:    { emergency: 'Call 120 (China)',          authority: 'NMPA ADR Reporting',                         link: 'https://www.adrs.org.cn' },
+  BR:    { emergency: 'Call 192 (Brazil)',         authority: 'ANVISA Brazil',                              link: 'https://www.gov.br/anvisa' },
+  ZA:    { emergency: 'Call 10177 (South Africa)', authority: 'SAHPRA South Africa',                        link: 'https://www.sahpra.org.za' },
+  SG:    { emergency: 'Call 995 (Singapore)',      authority: 'HSA PRISM Singapore',                        link: 'https://www.hsa.gov.sg/adverse-event-reporting' },
+  AE:    { emergency: 'Call 998 (UAE)',            authority: 'MOHAP UAE',                                  link: 'https://www.mohap.gov.ae' },
+  SA:    { emergency: 'Call 911 (Saudi Arabia)',   authority: 'SFDA Saudi Arabia',                          link: 'https://ade.sfda.gov.sa' },
+  OTHER: { emergency: 'Call your local emergency number', authority: 'WHO VigiFlow (global)', link: 'https://who-umc.org/vigiflow' }
+};
+
+const selections = { dechallenge: null, rechallenge: null };
+let concDrugs = [], concCounter = 0;
+
+document.querySelectorAll('.radio-group').forEach(grp => {
+  grp.querySelectorAll('.radio-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      grp.querySelectorAll('.radio-btn').forEach(b => b.classList.remove('selected'));
+      btn.classList.add('selected');
+      selections[grp.id] = btn.dataset.val;
+    });
+  });
+});
+
+function addConcDrug() {
+  const id = ++concCounter;
+  concDrugs.push(id);
+  const list = document.getElementById('conc-list');
+  const empty = list.querySelector('.empty-conc');
+  if (empty) empty.remove();
+  const card = document.createElement('div');
+  card.className = 'conc-drug-card';
+  card.id = 'conc-' + id;
+  card.innerHTML = `
+    <button class="remove-btn" onclick="removeConcDrug(${id})" aria-label="Remove">×</button>
+    <div class="conc-row">
+      <div><label style="font-size:13px;">Medication name</label><input type="text" id="conc-name-${id}" placeholder="e.g. Warfarin" style="margin-top:4px;"></div>
+      <div><label style="font-size:13px;">Dose <span style="color:#bbb;font-weight:400">(optional)</span></label><input type="text" id="conc-dose-${id}" placeholder="e.g. 5mg daily" style="margin-top:4px;"></div>
+    </div>
+    <div style="margin-top:10px;">
+      <label style="font-size:13px;">How long have you been taking it?</label>
+      <input type="text" id="conc-duration-${id}" placeholder="e.g. Started 1 week ago, been on it for 2 years" style="margin-top:4px;">
+    </div>
+    <div style="margin-top:10px;">
+      <label style="font-size:13px;">When did you last take it?</label>
+      <input type="text" id="conc-time-${id}" placeholder="e.g. Same day as the reaction, 2 days before" style="margin-top:4px;">
+    </div>`;
+  list.appendChild(card);
+}
+
+function removeConcDrug(id) {
+  concDrugs = concDrugs.filter(d => d !== id);
+  const card = document.getElementById('conc-' + id);
+  if (card) card.remove();
+  if (concDrugs.length === 0) document.getElementById('conc-list').innerHTML = '<p class="empty-conc">No other medications added yet</p>';
+}
+
+function getConcDrugsData() {
+  return concDrugs.map(id => ({
+    name:     document.getElementById('conc-name-' + id)?.value.trim() || '',
+    dose:     document.getElementById('conc-dose-' + id)?.value.trim() || '',
+    duration: document.getElementById('conc-duration-' + id)?.value.trim() || '',
+    time:     document.getElementById('conc-time-' + id)?.value.trim() || ''
+  })).filter(d => d.name);
+}
+
+function getCountryData() {
+  const code = document.getElementById('country').value;
+  return COUNTRY_DATA[code] || COUNTRY_DATA.OTHER;
+}
+
+async function assess() {
+  const drug = document.getElementById('drug').value.trim();
+  const adr  = document.getElementById('adr').value.trim();
+  const time = document.getElementById('time').value.trim();
+  const errEl = document.getElementById('error-msg');
+
+  if (!drug || !adr || !time) { errEl.style.display = 'block'; return; }
+  errEl.style.display = 'none';
+
+  const cd = getCountryData();
+  document.getElementById('urgent-call-text').textContent = cd.emergency + ' or go to your nearest emergency department';
+
+  document.getElementById('submit-btn').disabled = true;
+  document.getElementById('loading').style.display = 'block';
+  document.getElementById('loading-text').textContent = 'Checking your reaction...';
+
+  try {
+    const urgentRes = await fetch('/api/chat', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 10,
+        messages: [{ role: 'user', content: `You are a triage assistant. A person took ${drug} and describes this reaction: "${adr}". Does this sound like a potentially life-threatening or medical emergency requiring immediate care (e.g. breathing difficulty, anaphylaxis, chest pain, severe allergic reaction, loss of consciousness, seizure, severe bleeding, overdose, suicidal ideation, or any other acute danger)? Reply with only one word: YES or NO.` }]
+      })
+    });
+    const ud = await urgentRes.json();
+    const urgentAnswer = ud.content.map(b => b.text || '').join('').trim().toUpperCase();
+    if (urgentAnswer === 'YES') {
+      document.getElementById('urgent-banner').style.display = 'block';
+      document.getElementById('urgent-banner').scrollIntoView({ behavior: 'smooth', block: 'center' });
+      document.getElementById('loading').style.display = 'none';
+      document.getElementById('submit-btn').disabled = false;
+      return;
+    }
+  } catch(e) { /* if urgency check fails, proceed anyway */ }
+
+  doAssess();
+}
+
+async function doAssess() {
+  const drug     = document.getElementById('drug').value.trim();
+  const adr      = document.getElementById('adr').value.trim();
+  const time     = document.getElementById('time').value.trim();
+  const dose     = document.getElementById('dose').value.trim();
+  const duration = document.getElementById('duration').value.trim();
+  const other    = document.getElementById('other').value.trim();
+  const concs    = getConcDrugsData();
+
+  document.getElementById('loading-text').textContent = 'Analysing all your medications...';
+
+  const dechallengeMap = {
+    yes:      'Reaction improved or stopped when medication was stopped',
+    no:       'Reaction continued even after stopping',
+    not_done: 'Medication was not stopped',
+    unknown:  'Unknown'
+  };
+  const rechallengeMap = {
+    yes:      'Reaction returned when medication was restarted',
+    no:       'Reaction did not return',
+    not_done: 'Medication was not restarted',
+    unknown:  'Unknown'
+  };
+
+  const concText = concs.length > 0
+    ? concs.map(c => `- ${c.name}${c.dose ? ` (${c.dose})` : ''}${c.duration ? `, taken for: ${c.duration}` : ''}${c.time ? `, last taken: ${c.time}` : ''}`).join('\n')
+    : 'None reported';
+
+  const prompt = `You are a clinical pharmacology expert helping a member of the public understand whether their medication caused a reaction. Use WHO-UMC causality assessment criteria internally but write your response in warm, plain, everyday English. Avoid all medical jargon.
+
+Suspected medication: ${drug}${dose ? ` (${dose})` : ''}
+How long they had been taking it: ${duration || 'Not reported'}
+Reaction: ${adr}
+Time to reaction after starting suspected medication: ${time}
+When medication was stopped: ${dechallengeMap[selections.dechallenge] || 'Not reported'}
+When medication was restarted: ${rechallengeMap[selections.rechallenge] || 'Not reported'}
+Other possible causes: ${other || 'None'}
+Concomitant medications:
+${concText}
+
+Instructions:
+1. Assess pharmacological plausibility: is this reaction a known or mechanistically expected effect of ${drug}?
+2. IMPORTANT: If the reaction is a direct pharmacological consequence of the drug's mechanism of action (e.g. hypoglycaemia from a sulphonylurea, bleeding from an anticoagulant, bradycardia from a beta-blocker), classify as "certain" or "probable" even WITHOUT rechallenge data. Do not penalise for missing rechallenge when pharmacology alone explains it.
+3. Consider ALL concomitant medications and their timing: could any be the actual cause? Is there a drug-drug interaction that could explain or worsen the reaction?
+4. Produce a verdict ONLY for the suspected drug (${drug}).
+5. If a concomitant drug appears more likely responsible, set alt_culprit and explain in alt_culprit_note.
+6. If a drug-drug interaction likely played a role, describe it plainly in interaction_note.
+7. Write a warm, plain-English explanation (3-4 sentences). Do NOT use terms like: dechallenge, rechallenge, pharmacovigilance, causality, WHO-UMC, adverse event, sulphonylurea.
+
+Respond ONLY in this exact JSON format — no markdown, no extra text:
+{
+  "verdict": "Very likely caused by the medication" | "Probably caused by the medication" | "Possibly caused by the medication" | "Unlikely to be caused by the medication" | "Not enough information to tell",
+  "verdict_class": "certain" | "probable" | "possible" | "unlikely" | "unassessable",
+  "explanation": "Plain-English explanation.",
+  "alt_culprit": "Drug name or null",
+  "alt_culprit_note": "Explanation or null",
+  "interaction_note": "Interaction description or null"
+}`;
+
+  try {
+    const res = await fetch('/api/chat', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 1000,
+        messages: [{ role: 'user', content: prompt }]
+      })
+    });
+    const data = await res.json();
+    const raw  = data.content.map(b => b.text || '').join('').trim();
+    const parsed = JSON.parse(raw.replace(/```json|```/g, '').trim());
+
+    const classMap = { certain: 'v-certain', probable: 'v-probable', possible: 'v-possible', unlikely: 'v-unlikely', unassessable: 'v-unassessable' };
+    document.getElementById('verdict-banner').className = 'verdict-banner ' + (classMap[parsed.verdict_class] || 'v-unassessable');
+    document.getElementById('verdict-drug-name').textContent = drug;
+    document.getElementById('verdict-text').textContent = parsed.verdict;
+    document.getElementById('reasoning').textContent = parsed.explanation;
+
+    const intFlag = document.getElementById('interaction-flag');
+    const altFlag = document.getElementById('alt-culprit-flag');
+    if (parsed.interaction_note) { document.getElementById('interaction-text').textContent = parsed.interaction_note; intFlag.style.display = 'block'; } else { intFlag.style.display = 'none'; }
+    if (parsed.alt_culprit && parsed.alt_culprit_note) { document.getElementById('alt-culprit-text').textContent = parsed.alt_culprit_note; altFlag.style.display = 'block'; } else { altFlag.style.display = 'none'; }
+
+    document.getElementById('result-card').style.display = 'block';
+
+    // Reporting nudge — only for possible / probable / certain
+    const nudge = document.getElementById('report-nudge');
+    if (['certain','probable','possible'].includes(parsed.verdict_class)) {
+      const cd = getCountryData();
+      document.getElementById('report-link').href = cd.link;
+      document.getElementById('report-authority').textContent = 'You will be taken to: ' + cd.authority;
+      nudge.style.display = 'block';
+    } else {
+      nudge.style.display = 'none';
+    }
+
+    document.getElementById('result-card').scrollIntoView({ behavior: 'smooth', block: 'start' });
+
+    window._reportData = {
+      drug, dose, duration, adr, time,
+      stopped:   dechallengeMap[selections.dechallenge] || 'Not reported',
+      restarted: rechallengeMap[selections.rechallenge] || 'Not reported',
+      other, concs,
+      verdict: parsed.verdict, explanation: parsed.explanation,
+      interaction_note: parsed.interaction_note,
+      alt_culprit: parsed.alt_culprit, alt_culprit_note: parsed.alt_culprit_note,
+      country: getCountryData()
+    };
+
+  } catch(e) {
+    document.getElementById('verdict-text').textContent = 'Something went wrong';
+    document.getElementById('reasoning').textContent = "We couldn't complete the assessment. Please try again in a moment.";
+    document.getElementById('verdict-banner').className = 'verdict-banner v-unassessable';
+    document.getElementById('result-card').style.display = 'block';
+  }
+
+  document.getElementById('loading').style.display = 'none';
+  document.getElementById('submit-btn').disabled = false;
+}
+
+function downloadPDF() {
+  const d = window._reportData;
+  if (!d) return;
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({ unit: 'mm', format: 'a4' });
+  const W = 210, M = 20, CW = W - M * 2;
+
+  doc.setFillColor(248,247,244); doc.rect(0,0,W,297,'F');
+  doc.setFillColor(255,255,255); doc.roundedRect(M,15,CW,30,3,3,'F');
+  doc.setFontSize(16); doc.setFont('helvetica','bold'); doc.setTextColor(26,26,26);
+  doc.text('Did my medication cause this?', M+8, 27);
+  doc.setFontSize(9); doc.setFont('helvetica','normal'); doc.setTextColor(120,120,120);
+  doc.text('Report generated on ' + new Date().toLocaleDateString('en-GB',{day:'numeric',month:'long',year:'numeric'}), M+8, 36);
+
+  let y = 55;
+  const colorMap = { 'Very likely':[234,243,222], 'Probably':[230,241,251], 'Possibly':[250,238,218], 'Unlikely':[252,235,235], 'Not enough':[241,239,232] };
+  const bg = Object.entries(colorMap).find(([k]) => d.verdict.startsWith(k))?.[1] || [241,239,232];
+  doc.setFillColor(...bg); doc.roundedRect(M,y,CW,22,3,3,'F');
+  doc.setFontSize(8); doc.setFont('helvetica','normal'); doc.setTextColor(100,100,100);
+  doc.text('HOW LIKELY ' + d.drug.toUpperCase() + ' CAUSED THIS', M+8, y+8);
+  doc.setFontSize(13); doc.setFont('helvetica','bold'); doc.setTextColor(26,26,26);
+  doc.text(d.verdict, M+8, y+17);
+  y += 30;
+
+  const section = (title, value) => {
+    if (!value) return;
+    doc.setFillColor(255,255,255);
+    const lines = doc.splitTextToSize(value, CW-16);
+    const h = 14 + lines.length * 6;
+    if (y + h > 270) { doc.addPage(); doc.setFillColor(248,247,244); doc.rect(0,0,W,297,'F'); y = 20; }
+    doc.roundedRect(M,y,CW,h,3,3,'F');
+    doc.setFontSize(8); doc.setFont('helvetica','bold'); doc.setTextColor(120,120,120);
+    doc.text(title.toUpperCase(), M+8, y+8);
+    doc.setFontSize(10); doc.setFont('helvetica','normal'); doc.setTextColor(26,26,26);
+    lines.forEach((l,i) => doc.text(l, M+8, y+15+i*6));
+    y += h + 4;
+  };
+
+  section('Suspected medication', d.drug + (d.dose ? ' — ' + d.dose : ''));
+  if (d.duration) section('How long they had been taking it', d.duration);
+  if (d.concs && d.concs.length > 0)
+    section('Other medications taken at the same time',
+      d.concs.map(c => `${c.name}${c.dose?' ('+c.dose+')':''}${c.duration?' — taken for: '+c.duration:''}${c.time?' — last taken: '+c.time:''}`).join('\n'));
+  section('What you experienced', d.adr);
+  section('How soon it happened', d.time);
+  section('When you stopped taking it', d.stopped);
+  section('When you started taking it again', d.restarted);
+  if (d.other) section('Other possible causes', d.other);
+  if (d.interaction_note) section('Drug interaction noted', d.interaction_note);
+  if (d.alt_culprit && d.alt_culprit_note) section('Another medication flagged', d.alt_culprit_note);
+  section('What this means', d.explanation);
+  if (d.country) section('To report this reaction officially', d.country.authority + '\n' + d.country.link);
+
+  y += 4;
+  if (y + 25 > 270) { doc.addPage(); doc.setFillColor(248,247,244); doc.rect(0,0,W,297,'F'); y = 20; }
+  doc.setFillColor(252,235,235);
+  const disc = 'This report is for information only and is not medical advice. Please speak to your doctor or pharmacist — especially if your reaction was serious, is getting worse, or has not gone away.';
+  const discLines = doc.splitTextToSize(disc, CW-16);
+  doc.roundedRect(M, y, CW, 10 + discLines.length * 5.5, 3, 3, 'F');
+  doc.setFontSize(8); doc.setFont('helvetica','normal'); doc.setTextColor(100,40,40);
+  discLines.forEach((l,i) => doc.text(l, M+8, y+7+i*5.5));
+
+  doc.save('my-medication-reaction-report.pdf');
+}
+
+function resetForm() {
+  ['drug','dose','duration','adr','time','other'].forEach(id => document.getElementById(id).value = '');
+  document.getElementById('country').value = '';
+  document.querySelectorAll('.radio-btn').forEach(b => b.classList.remove('selected'));
+  selections.dechallenge = null; selections.rechallenge = null;
+  concDrugs = []; concCounter = 0;
+  document.getElementById('conc-list').innerHTML = '<p class="empty-conc">No other medications added yet</p>';
+  document.getElementById('result-card').style.display = 'none';
+  document.getElementById('report-nudge').style.display = 'none';
+  document.getElementById('urgent-banner').style.display = 'none';
+  window.scrollTo(0,0);
+}
+</script>
+</body>
+</html>
