@@ -92,6 +92,22 @@
       <p class="hint">This helps us understand whether the reaction is new or delayed.</p>
       <input type="text" id="duration" placeholder="e.g. 2 days, 3 weeks, about 6 months, over a year">
     </div>
+    <div class="conc-row" style="margin-top:1.1rem;">
+      <div class="field" style="margin-bottom:0;">
+        <label>Age</label>
+        <p class="hint">Helps assess age-related risk factors.</p>
+        <input type="text" id="age" placeholder="e.g. 34">
+      </div>
+      <div class="field" style="margin-bottom:0;">
+        <label>Sex</label>
+        <p class="hint">Some reactions are more common in certain sexes.</p>
+        <div class="radio-group" id="sex" style="margin-top:4px;">
+          <div class="radio-btn" data-val="male">Male</div>
+          <div class="radio-btn" data-val="female">Female</div>
+          <div class="radio-btn" data-val="prefer_not">Prefer not to say</div>
+        </div>
+      </div>
+    </div>
   </div>
 
   <!-- STEP 2 -->
@@ -261,7 +277,7 @@ const COUNTRY_DATA = {
   OTHER: { emergency: 'Call your local emergency number', authority: 'WHO VigiFlow (global)', link: 'https://who-umc.org/vigiflow' }
 };
 
-const selections = { dechallenge: null, rechallenge: null };
+const selections = { dechallenge: null, rechallenge: null, sex: null };
 let concDrugs = [], concCounter = 0;
 
 document.querySelectorAll('.radio-group').forEach(grp => {
@@ -269,7 +285,8 @@ document.querySelectorAll('.radio-group').forEach(grp => {
     btn.addEventListener('click', () => {
       grp.querySelectorAll('.radio-btn').forEach(b => b.classList.remove('selected'));
       btn.classList.add('selected');
-      selections[grp.id] = btn.dataset.val;
+      if (grp.id === 'sex') { selections.sex = btn.dataset.val; }
+      else { selections[grp.id] = btn.dataset.val; }
     });
   });
 });
@@ -367,6 +384,8 @@ async function doAssess() {
   const time     = document.getElementById('time').value.trim();
   const dose     = document.getElementById('dose').value.trim();
   const duration = document.getElementById('duration').value.trim();
+  const age      = document.getElementById('age').value.trim();
+  const sex      = selections.sex ? ({ male: 'Male', female: 'Female', prefer_not: 'Not specified' })[selections.sex] : 'Not specified';
   const other    = document.getElementById('other').value.trim();
   const concs    = getConcDrugsData();
 
@@ -392,6 +411,7 @@ async function doAssess() {
   const prompt = `You are a clinical pharmacology expert helping a member of the public understand whether their medication caused a reaction. Use WHO-UMC causality assessment criteria internally but write your response in warm, plain, everyday English. Avoid all medical jargon.
 
 Suspected medication: ${drug}${dose ? ` (${dose})` : ''}
+Patient: ${age ? `${age} year old` : 'Age not specified'}, ${sex}
 How long they had been taking it: ${duration || 'Not reported'}
 Reaction: ${adr}
 Time to reaction after starting suspected medication: ${time}
@@ -548,10 +568,10 @@ function downloadPDF() {
 }
 
 function resetForm() {
-  ['drug','dose','duration','adr','time','other'].forEach(id => document.getElementById(id).value = '');
+  ['drug','dose','duration','age','adr','time','other'].forEach(id => document.getElementById(id).value = '');
   document.getElementById('country').value = '';
   document.querySelectorAll('.radio-btn').forEach(b => b.classList.remove('selected'));
-  selections.dechallenge = null; selections.rechallenge = null;
+  selections.dechallenge = null; selections.rechallenge = null; selections.sex = null;
   concDrugs = []; concCounter = 0;
   document.getElementById('conc-list').innerHTML = '<p class="empty-conc">No other medications added yet</p>';
   document.getElementById('result-card').style.display = 'none';
